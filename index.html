@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZEYAD — Cinematic Video Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;700;800&family=Syncopate:wght@700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* -------------------------------------------------------------------------- */
+        /* 1. DESIGN SYSTEM & RESET                                                   */
+        /* -------------------------------------------------------------------------- */
+        :root {
+            --bg-base: #000000;
+            --text-primary: #ffffff;
+            --text-secondary: #8a8a93;
+            --accent-purple: #1900ff;
+            --accent-blue: #1744f8;
+            --accent-glow: rgba(139, 92, 246, 0.15);
+            --glass-bg: rgba(255, 255, 255, 0.02);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --font-display: 'Syncopate', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --transition-smooth: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            background-color: var(--bg-base);
+            font-family: var(--font-sans);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        body {
+            position: relative;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 2. BACKGROUND EFFECTS (ORBS & FILM GRAIN)                                  */
+        /* -------------------------------------------------------------------------- */
+        .bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 50%, #0d0d1a 0%, var(--bg-base) 100%);
+        }
+
+        .glow-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.45;
+            pointer-events: none;
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+            will-change: transform;
+        }
+
+        .orb-purple {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-purple) 0%, rgba(0, 0, 0, 0) 70%);
+            top: -10%;
+            left: 10%;
+        }
+
+        .orb-blue {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-blue) 0%, rgba(0, 0, 0, 0) 70%);
+            bottom: 10%;
+            right: 5%;
+        }
+
+        .film-grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 3. TYPOGRAPHY & LAYOUT UTILITIES                                          */
+        /* -------------------------------------------------------------------------- */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2.5rem;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 2.25rem;
+            font-weight: 700;
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            margin-bottom: 4rem;
+            position: relative;
+            display: inline-block;
+            background: linear-gradient(180deg, #fff 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 4. NAVIGATION BAR                                                          */
+        /* -------------------------------------------------------------------------- */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 1.5rem 0;
+            background: linear-gradient(to bottom, rgba(5, 5, 10, 0.8) 0%, rgba(5, 5, 10, 0) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            transition: var(--transition-smooth);
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 5. HERO SECTION                                                            */
+        /* -------------------------------------------------------------------------- */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding-top: 80px;
+            position: relative;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 4rem;
+            align-items: center;
+            width: 100%;
+        }
+
+        .hero-text {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: heroLoad 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: 0.2s;
+        }
+
+        @keyframes heroLoad {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-subtitle {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.5em;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .hero-name {
+            font-family: var(--font-display);
+            font-size: clamp(3.5rem, 6vw, 6rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #ffffff 30%, #a5a5b2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-tagline {
+            font-size: clamp(1.1rem, 2vw, 1.4rem);
+            font-weight: 300;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            max-width: 540px;
+        }
+
+        .hero-cta-group {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 2.2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, #6d28d9 100%);
+            color: var(--text-primary);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 30px rgba(139, 92, 246, 0.6);
+            background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
+        }
+
+        .btn-secondary {
+            background: var(--glass-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .hero-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(0.9) rotate(2deg);
+            animation: heroVisualLoad 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: 0.4s;
+        }
+
+        @keyframes heroVisualLoad {
+            to {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .portrait-container {
+            position: relative;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            padding: 10px;
+            background: linear-gradient(135deg, var(--glass-border), rgba(139, 92, 246, 0.2));
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .portrait-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 50%;
+            z-index: -1;
+            opacity: 0.3;
+            filter: blur(8px);
+        }
+
+        .portrait-frame {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #11111f;
+            position: relative;
+        }
+
+        .portrait-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(20%) contrast(110%);
+            transition: var(--transition-smooth);
+        }
+
+        .portrait-container:hover img {
+            transform: scale(1.05);
+            filter: grayscale(0%) contrast(105%);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 6. FEATURED WORK SECTION                                                   */
+        /* -------------------------------------------------------------------------- */
+        .portfolio-section {
+            padding: 100px 0;
+            position: relative;
+        }
+
+        .work-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2.5rem;
+        }
+
+        .project-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            display: block;
+            transition: var(--transition-smooth);
+            position: relative;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .thumbnail-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            /* 16:9 Aspect Ratio */
+            background: #0f0f1d;
+            overflow: hidden;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: var(--transition-smooth);
+        }
+
+        .thumbnail-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .play-trigger {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 64px;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: var(--transition-smooth);
+            z-index: 2;
+        }
+
+        .play-trigger svg {
+            width: 20px;
+            height: 20px;
+            fill: #fff;
+            transform: translateX(2px);
+        }
+
+        .project-meta {
+            padding: 1.8rem;
+            position: relative;
+            background: linear-gradient(to top, rgba(5, 5, 10, 0.9) 0%, rgba(5, 5, 10, 0.4) 100%);
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .project-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.4rem;
+            color: var(--text-primary);
+            transition: var(--transition-smooth);
+        }
+
+        .project-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-weight: 500;
+        }
+
+        .project-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(139, 92, 246, 0.4);
+            box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
+        }
+
+        .project-card:hover .video-placeholder {
+            transform: scale(1.06);
+        }
+
+        .project-card:hover .play-trigger {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 0 25px var(--accent-purple);
+            background: #fff;
+        }
+
+        .project-card:hover .play-trigger svg {
+            fill: #000;
+        }
+
+        .project-card:hover .project-title {
+            color: var(--accent-purple);
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* NEW: CINEMATIC VIDEO LIGHTBOX POPUP (MODAL)                                */
+        /* -------------------------------------------------------------------------- */
+        .video-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 3, 7, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .video-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-container {
+            width: 90%;
+            max-width: 1100px;
+            aspect-ratio: 16/9;
+            background: #000;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.8), 0 0 50px rgba(139, 92, 246, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            transform: scale(0.95);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .video-modal.active .modal-container {
+            transform: scale(1);
+        }
+
+        .modal-video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition-smooth);
+        }
+
+        .modal-close:hover {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        .modal-close svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 7. ABOUT ME SECTION                                                        */
+        /* -------------------------------------------------------------------------- */
+        .about-section {
+            padding: 140px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .about-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .about-text {
+            font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+            font-weight: 300;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.95);
+            letter-spacing: -0.01em;
+        }
+
+        .about-text span {
+            font-weight: 700;
+            background: linear-gradient(120deg, var(--accent-purple), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 8. FOOTER                                                                  */
+        /* -------------------------------------------------------------------------- */
+        footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 3rem 0;
+            background: rgba(3, 3, 7, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        /* -------------------------------------------------------------------------- */
+        /* 9. RESPONSIVE ARCHITECTURE (MOBILE OPTIMIZED)                              */
+        /* -------------------------------------------------------------------------- */
+        @media (max-width: 992px) {
+            .hero {
+                padding-top: 140px;
+                padding-bottom: 60px;
+            }
+
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 4rem;
+                text-align: center;
+            }
+
+            .hero-text {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .hero-tagline {
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .hero-visual {
+                order: -1;
+            }
+
+            .work-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .modal-close {
+                top: 15px;
+                right: 15px;
+                background: rgba(0, 0, 0, 0.5);
+                padding: 8px 16px;
+                border-radius: 20px;
+                z-index: 10;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .container {
+                padding: 0 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero-cta-group {
+                flex-direction: column;
+                width: 100%;
+                gap: 1rem;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .portrait-container {
+                width: 260px;
+                height: 260px;
+            }
+
+            .section-title {
+                font-size: 1.6rem;
+                letter-spacing: 0.25em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- <div class="film-grain"></div> -->
+    <div class="bg-canvas">
+        <div class="glow-orb orb-purple" id="orbPurple"></div>
+        <div class="glow-orb orb-blue" id="orbBlue"></div>
+    </div>
+
+    <nav>
+        <div class="container nav-container">
+            <a href="#" class="logo">Zeyad_algamal</a>
+            <div class="nav-links">
+                <a href="#work">Work</a>
+                <a href="#about">About</a>
+                <a href="#contact">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container hero-grid">
+            <div class="hero-text">
+                <span class="hero-subtitle">Video Editor</span>
+                <h1 class="hero-name">ZEYAD</h1>
+                <p class="hero-tagline">Turning visuals into stories.</p>
+                <div class="hero-cta-group">
+                    <a href="#contact" class="btn btn-primary">Contact Me</a>
+                    <a href="https://www.instagram.com/zeyad.algamal_7?igsh=MWRmajQ0N245ZXFhbA==" target="_blank"
+                        rel="noopener noreferrer" class="btn btn-secondary">Instagram</a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="portrait-container">
+                    <div class="portrait-frame">
+                        <img src="public/wedding.jpg" alt="Zeyad Portrait" onerror="this.style.display='none';">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="portfolio-section" id="work">
+        <div class="container">
+            <h2 class="section-title reveal">Featured Work</h2>
+            <div class="work-grid">
+
+                <div class="project-card reveal" data-video="public/3d floating card intro.mp4">
+                    <div class="thumbnail-wrapper">
+                        <video class="video-placeholder" autoplay muted loop playsinline>
+                            <source src="public/3d floating card intro.mp4" type="video/mp4" />
+                        </video>
+                        <div class="play-trigger">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="project-meta">
+                        <h3 class="project-title">Project 1</h3>
+                        <p class="project-subtitle">Cinematic Edit / Motion Design</p>
+                    </div>
+                </div>
+
+                <div class="project-card reveal" data-video="public/batman_1.mp4">
+                    <div class="thumbnail-wrapper">
+                        <video class="video-placeholder" autoplay muted loop playsinline>
+                            <source src="public/batman_1.mp4" type="video/mp4" />
+                        </video>
+                        <div class="play-trigger">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="project-meta">
+                        <h3 class="project-title">Project 2</h3>
+                        <p class="project-subtitle">Cinematic Edit / Motion Design</p>
+                    </div>
+                </div>
+
+                <div class="project-card reveal" data-video="public/final doller.mp4">
+                    <div class="thumbnail-wrapper">
+                        <video class="video-placeholder" autoplay muted loop playsinline>
+                            <source src="public/final doller.mp4" type="video/mp4" />
+                        </video>
+                        <div class="play-trigger">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="project-meta">
+                        <h3 class="project-title">Project 3</h3>
+                        <p class="project-subtitle">Cinematic Edit / Motion Design</p>
+                    </div>
+                </div>
+
+                <div class="project-card reveal" data-video="public/project 2.mp4">
+                    <div class="thumbnail-wrapper">
+                        <video class="video-placeholder" autoplay muted loop playsinline>
+                            <source src="public/project 2.mp4" type="video/mp4" />
+                        </video>
+                        <div class="play-trigger">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="project-meta">
+                        <h3 class="project-title">Project 4</h3>
+                        <p class="project-subtitle">Cinematic Edit / Motion Design</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <div class="video-modal" id="videoModal">
+        <div class="modal-container">
+            <button class="modal-close" id="modalClose">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+                Close
+            </button>
+            <video class="modal-video" id="modalVideo" controls controlsList="nodownload"></video>
+        </div>
+    </div>
+
+    <section class="about-section" id="about">
+        <div class="container">
+            <div class="about-content">
+                <h2 class="section-title reveal">About Me</h2>
+                <p class="about-text reveal">
+                    I am a cinematic video editor specializing in <span>storytelling</span>, rhythm, and visual emotion.
+                    I transform raw footage into <span>high-impact visual experiences</span> designed for brands and
+                    creators.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <footer id="contact">
+        <div class="container">
+            <p class="footer-text">© 2026 ZEYAD — Cinematic Video Editor</p>
+        </div>
+    </footer>
+
+    <script>
+        /* -------------------------------------------------------------------------- */
+        /* 1. MOUSE FOLLOW PARALLAX EFFECT FOR GLOWING ORBS                          */
+        /* -------------------------------------------------------------------------- */
+        const orbPurple = document.getElementById('orbPurple');
+        const orbBlue = document.getElementById('orbBlue');
+
+        document.addEventListener('mousemove', (e) => {
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            const moveXPurple = (mouseX - window.innerWidth / 2) * 0.05;
+            const moveYPurple = (mouseY - window.innerHeight / 2) * 0.05;
+
+            const moveXBlue = (mouseX - window.innerWidth / 2) * -0.03;
+            const moveYBlue = (mouseY - window.innerHeight / 2) * -0.03;
+
+            orbPurple.style.transform = `translate(${moveXPurple}px, ${moveYPurple}px)`;
+            orbBlue.style.transform = `translate(${moveXBlue}px, ${moveYBlue}px)`;
+        });
+
+        /* -------------------------------------------------------------------------- */
+        /* 2. HIGH-PERFORMANCE INTERSECTION OBSERVER FOR SCROLL REVEALS               */
+        /* -------------------------------------------------------------------------- */
+        const revealElements = document.querySelectorAll('.reveal');
+
+        const revealOptions = {
+            threshold: 0.15,
+            rootMargin: "0px 0px -50px 0px"
+        };
+
+        const revealObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, revealOptions);
+
+        revealElements.forEach(element => {
+            revealObserver.observe(element);
+        });
+
+        /* -------------------------------------------------------------------------- */
+        /* 3. HOVER BACKGROUND ATMOSPHERE ACCENTS                                     */
+        /* -------------------------------------------------------------------------- */
+        const cards = document.querySelectorAll('.project-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                orbPurple.style.opacity = '0.6';
+                orbBlue.style.opacity = '0.6';
+            });
+            card.addEventListener('mouseleave', () => {
+                orbPurple.style.opacity = '0.45';
+                orbBlue.style.opacity = '0.45';
+            });
+        });
+
+        /* -------------------------------------------------------------------------- */
+        /* 4. CINEMATIC LIGHTBOX VIDEO SYSTEM ENGINE                                 */
+        /* -------------------------------------------------------------------------- */
+        const videoModal = document.getElementById('videoModal');
+        const modalVideo = document.getElementById('modalVideo');
+        const modalClose = document.getElementById('modalClose');
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                const videoSrc = card.getAttribute('data-video');
+                modalVideo.src = videoSrc;
+                videoModal.classList.add('active');
+                modalVideo.play();
+                document.body.style.overflow = 'hidden'; // Prevent background scroll
+            });
+        });
+
+        function closeModal() {
+            videoModal.classList.remove('active');
+            modalVideo.pause();
+            modalVideo.src = ""; // Clear source to stop buffer network activity
+            document.body.style.overflow = ''; // Restore scroll
+        }
+
+        modalClose.addEventListener('click', closeModal);
+
+        // Close on clicking outside the video container frame
+        videoModal.addEventListener('click', (e) => {
+            if (e.target === videoModal) {
+                closeModal();
+            }
+        });
+
+        // Close on ESC keyboard key click
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && videoModal.classList.contains('active')) {
+                closeModal();
+            }
+        });
+    </script>
+
+</body>
+
+</html>
